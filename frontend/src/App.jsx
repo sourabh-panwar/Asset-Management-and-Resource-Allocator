@@ -1,5 +1,18 @@
 import { useState, useEffect } from 'react';
 
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
 function App() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
@@ -7,7 +20,7 @@ function App() {
   const [totalQuantity, setTotalQuantity] = useState(1);
   
   const [assets, setAssets] = useState([]);
-  const [bookings, setBookings] = useState([]); 
+  const [bookings, setBookings] = useState([]);
 
   const fetchAssets = async () => {
     try {
@@ -31,7 +44,7 @@ function App() {
 
   useEffect(() => {
     fetchAssets();
-    fetchBookings(); 
+    fetchBookings();
   }, []);
 
   const handleAddAsset = async (e) => {
@@ -70,13 +83,62 @@ function App() {
 
       if (response.ok) {
         alert('Booking request submitted!');
-        fetchBookings(); 
+        fetchBookings();
       } else {
         alert('Booking failed');
       }
     } catch (error) {
       console.error('Error booking asset:', error);
     }
+  };
+
+  const handleApprove = async (bookingId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/bookings/${bookingId}/approve`, {
+        method: 'PUT',
+      });
+      if (response.ok) {
+        alert('Booking Approved!');
+        fetchBookings();
+        fetchAssets();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to approve: ${errorData.error}`);
+      }
+    } catch (error) {
+      console.error('Error approving booking:', error);
+    }
+  };
+
+  const chartData = {
+    labels: assets.map(asset => asset.name), 
+    datasets: [
+      {
+        label: 'Available Quantity',
+        data: assets.map(asset => asset.available_quantity), 
+        backgroundColor: 'rgba(40, 167, 69, 0.7)', 
+      },
+      {
+        label: 'Checked Out',
+        data: assets.map(asset => asset.total_quantity - asset.available_quantity), 
+        backgroundColor: 'rgba(255, 193, 7, 0.7)', 
+      }
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    scales: {
+      x: { stacked: true },
+      y: { stacked: true, beginAtZero: true }
+    },
+    plugins: {
+      title: {
+        display: true,
+        text: 'Current Asset Utilization',
+        font: { size: 18 }
+      },
+    },
   };
 
   return (
@@ -95,6 +157,16 @@ function App() {
           <button type="submit" style={{ padding: '8px 16px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer' }}>Add</button>
         </form>
       </div>
+
+      {/* NEW: Analytics Dashboard */}
+      <h2>Analytics Dashboard</h2>
+      {assets.length > 0 ? (
+        <div style={{ padding: '20px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '40px' }}>
+          <Bar data={chartData} options={chartOptions} />
+        </div>
+      ) : (
+        <p>Add assets to see utilization analytics.</p>
+      )}
 
       {/* User Inventory View */}
       <h2>Available Inventory (User View)</h2>
@@ -118,6 +190,7 @@ function App() {
               <th style={{ padding: '10px', border: '1px solid #ccc' }}>Start Date</th>
               <th style={{ padding: '10px', border: '1px solid #ccc' }}>End Date</th>
               <th style={{ padding: '10px', border: '1px solid #ccc' }}>Status</th>
+              <th style={{ padding: '10px', border: '1px solid #ccc' }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -129,9 +202,16 @@ function App() {
                 <td style={{ padding: '10px', border: '1px solid #ccc' }}>{new Date(b.start_date).toLocaleDateString()}</td>
                 <td style={{ padding: '10px', border: '1px solid #ccc' }}>{new Date(b.end_date).toLocaleDateString()}</td>
                 <td style={{ padding: '10px', border: '1px solid #ccc' }}>
-                  <span style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: '#ffc107', fontSize: '12px', fontWeight: 'bold' }}>
+                  <span style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: b.status === 'pending' ? '#ffc107' : '#28a745', color: b.status === 'pending' ? 'black' : 'white', fontSize: '12px', fontWeight: 'bold' }}>
                     {b.status.toUpperCase()}
                   </span>
+                </td>
+                <td style={{ padding: '10px', border: '1px solid #ccc' }}>
+                  {b.status === 'pending' && (
+                    <button onClick={() => handleApprove(b.booking_id)} style={{ padding: '5px 10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
+                      Approve
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -141,6 +221,7 @@ function App() {
     </div>
   );
 }
+
 
 function AssetCard({ asset, onBook }) {
   const [qty, setQty] = useState(1);
