@@ -4,9 +4,7 @@ const { pool } = require('../config/db');
 
 router.post('/', async (req, res) => {
     try {
-        const { asset_id, quantity, start_date, end_date } = req.body;
-        
-        const user_id = 1; 
+        const { asset_id, quantity, start_date, end_date, user_id } = req.body;
 
         const newBooking = await pool.query(
             'INSERT INTO bookings (user_id, asset_id, quantity, start_date, end_date, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
