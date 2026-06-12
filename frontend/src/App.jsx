@@ -9,6 +9,9 @@ function App() {
   const [bookings, setBookings] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]); 
   
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
   const [activeTab, setActiveTab] = useState('inventory');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -16,7 +19,6 @@ function App() {
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [totalQuantity, setTotalQuantity] = useState(1);
-
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -28,6 +30,7 @@ function App() {
     if (user) {
       fetchAssets();
       fetchBookings();
+      fetchNotifications(); 
       if (user.role === 'admin') fetchAuditLogs(); 
     }
   }, [user]);
@@ -47,6 +50,17 @@ function App() {
   const fetchAuditLogs = async () => {
     const res = await fetch('http://localhost:5000/api/audit-logs');
     setAuditLogs(await res.json());
+  };
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    const res = await fetch(`http://localhost:5000/api/notifications/${user.id}`);
+    setNotifications(await res.json());
+  };
+
+  const handleDismissNotification = async (notifId) => {
+    const res = await fetch(`http://localhost:5000/api/notifications/${notifId}/read`, { method: 'PUT' });
+    if (res.ok) { fetchNotifications(); } 
   };
 
   const handleLogout = () => {
@@ -169,18 +183,13 @@ function App() {
   return (
     <div style={{ backgroundColor: '#f4f7f6', minHeight: '100vh', padding: '30px 20px', position: 'relative' }}>
       
-      {/* GLOBAL LOADING SPINNER OVERLAY */}
       {isLoading && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(3px)',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-          zIndex: 9999
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 9999
         }}>
-          <div style={{
-            width: '50px', height: '50px', border: '5px solid #f3f3f3', borderTop: '5px solid #007bff',
-            borderRadius: '50%', animation: 'spin 1s linear infinite'
-          }} />
+          <div style={{ width: '50px', height: '50px', border: '5px solid #f3f3f3', borderTop: '5px solid #007bff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <p style={{ marginTop: '20px', fontWeight: 'bold', color: '#2c3e50', fontSize: '18px' }}>Processing...</p>
           <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
         </div>
@@ -188,10 +197,50 @@ function App() {
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: '#ffffff', borderRadius: '24px', padding: '40px 50px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', fontFamily: 'sans-serif' }}>
         
-        {/* HEADER */}
+        {/* bell icon for notifs */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eaeaea', paddingBottom: '20px', marginBottom: '25px' }}>
           <h1 style={{ margin: 0, color: '#2c3e50', fontWeight: '800' }}>IITR Asset Platform</h1>
-          <div>
+          
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            
+            {/* wigget for that */}
+            <div style={{ position: 'relative', marginRight: '20px' }}>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)} 
+                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', position: 'relative', padding: 0 }}
+              >
+                🔔
+                {notifications.length > 0 && (
+                  <span style={{ position: 'absolute', top: '-5px', right: '-8px', background: '#dc3545', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: '11px', fontWeight: 'bold', border: '2px solid white' }}>
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
+              
+              {/* DROPDOWN MENU */}
+              {showNotifications && (
+                <div style={{ position: 'absolute', top: '40px', right: '0', background: 'white', border: '1px solid #eaeaea', borderRadius: '12px', width: '320px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 1000, padding: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
+                     <h4 style={{ margin: 0, color: '#2c3e50' }}>Alerts</h4>
+                     <button onClick={() => setShowNotifications(false)} style={{ background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer', color: '#6c757d' }}>✖</button>
+                  </div>
+                  
+                  {notifications.length === 0 ? <p style={{ fontSize: '13px', color: '#6c757d', textAlign: 'center', margin: '20px 0' }}>No new notifications.</p> : (
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '300px', overflowY: 'auto' }}>
+                      {notifications.map(n => (
+                        <li key={n.notification_id} style={{ fontSize: '13px', marginBottom: '10px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '8px', borderLeft: '4px solid #007bff', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                           <span style={{ color: '#2c3e50', lineHeight: '1.4' }}>{n.message}</span>
+                           <button onClick={() => handleDismissNotification(n.notification_id)} style={{ background: 'none', border: 'none', color: '#6c757d', cursor: 'pointer', fontSize: '14px', padding: 0 }} title="Dismiss">
+                             ✓
+                           </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
             <span style={{ marginRight: '20px', fontWeight: '600', color: user.role === 'admin' ? '#d9534f' : '#0275d8' }}>
               {user.name} ({user.role.toUpperCase()})
             </span>

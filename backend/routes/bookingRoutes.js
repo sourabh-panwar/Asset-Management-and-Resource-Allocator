@@ -32,7 +32,11 @@ router.put('/:id/approve', async (req, res) => {
         const bookingId = req.params.id;
         const { admin_id } = req.body; 
 
-        const bookingCheck = await client.query('SELECT * FROM bookings WHERE booking_id = $1', [bookingId]);
+        const bookingCheck = await client.query(`
+            SELECT b.*, a.name as asset_name FROM bookings b 
+            JOIN assets a ON b.asset_id = a.asset_id 
+            WHERE b.booking_id = $1
+        `, [bookingId]);
         const booking = bookingCheck.rows[0];
 
         if (!booking || booking.status !== 'pending') throw new Error("Invalid status.");
@@ -41,7 +45,10 @@ router.put('/:id/approve', async (req, res) => {
         await client.query("UPDATE bookings SET status = 'approved' WHERE booking_id = $1", [bookingId]);
 
         await client.query("INSERT INTO audit_logs (admin_id, action, details) VALUES ($1, $2, $3)", 
-            [admin_id, 'BOOKING_APPROVAL', `Approved Booking #${bookingId} (Asset ID: ${booking.asset_id}, Qty: ${booking.quantity})`]);
+            [admin_id, 'BOOKING_APPROVAL', `Approved Booking #${bookingId} (Asset ID: ${booking.asset_id})`]);
+
+        await client.query("INSERT INTO notifications (user_id, message) VALUES ($1, $2)", 
+            [booking.user_id, `✅ APPROVED: Your request for ${booking.quantity}x ${booking.asset_name} is ready for pickup!`]);
 
         await client.query('COMMIT'); 
         res.json({ message: "Booking approved successfully!" });
@@ -54,10 +61,17 @@ router.put('/:id/reject', async (req, res) => {
     try {
         const bookingId = req.params.id;
         const { admin_id } = req.body;
+        
+        const bookingCheck = await pool.query('SELECT b.*, a.name as asset_name FROM bookings b JOIN assets a ON b.asset_id = a.asset_id WHERE b.booking_id = $1', [bookingId]);
+        const booking = bookingCheck.rows[0];
+
         await pool.query("UPDATE bookings SET status = 'rejected' WHERE booking_id = $1 AND status = 'pending'", [bookingId]);
         
         await pool.query("INSERT INTO audit_logs (admin_id, action, details) VALUES ($1, $2, $3)", 
             [admin_id, 'BOOKING_REJECTED', `Rejected Booking #${bookingId}`]);
+
+        await pool.query("INSERT INTO notifications (user_id, message) VALUES ($1, $2)", 
+            [booking.user_id, `❌ REJECTED: Your request for ${booking.asset_name} was denied due to unavailability.`]);
 
         res.json({ message: "Booking rejected." });
     } catch (error) { res.status(500).json({ error: "Server error" }); }
@@ -78,7 +92,7 @@ router.put('/:id/approve-return', async (req, res) => {
         const bookingId = req.params.id;
         const { admin_id } = req.body;
 
-        const bookingCheck = await client.query('SELECT * FROM bookings WHERE booking_id = $1', [bookingId]);
+        const bookingCheck = await client.query('SELECT b.*, a.name as asset_name FROM bookings b JOIN assets a ON b.asset_id = a.asset_id WHERE b.booking_id = $1', [bookingId]);
         const booking = bookingCheck.rows[0];
 
         if (!booking || booking.status !== 'return_pending') throw new Error("Invalid status.");
@@ -87,7 +101,10 @@ router.put('/:id/approve-return', async (req, res) => {
         await client.query("UPDATE bookings SET status = 'returned' WHERE booking_id = $1", [bookingId]);
 
         await client.query("INSERT INTO audit_logs (admin_id, action, details) VALUES ($1, $2, $3)", 
-            [admin_id, 'RETURN_APPROVAL', `Approved Return for Booking #${bookingId} (Asset ID: ${booking.asset_id}, Qty: ${booking.quantity})`]);
+            [admin_id, 'RETURN_APPROVAL', `Approved Return for Booking #${bookingId}`]);
+
+        await client.query("INSERT INTO notifications (user_id, message) VALUES ($1, $2)", 
+            [booking.user_id, `🔄 RETURNED: Your return of ${booking.asset_name} has been successfully processed.`]);
 
         await client.query('COMMIT'); 
         res.json({ message: "Asset returned successfully!" });
