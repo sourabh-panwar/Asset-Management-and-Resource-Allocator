@@ -17,6 +17,8 @@ function App() {
   const [description, setDescription] = useState('');
   const [totalQuantity, setTotalQuantity] = useState(1);
 
+  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) setUser(JSON.parse(storedUser));
@@ -55,67 +57,91 @@ function App() {
 
   const handleAddAsset = async (e) => {
     e.preventDefault();
-    const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
-    const newAsset = { name, category: formattedCategory, description, total_quantity: parseInt(totalQuantity), admin_id: user.id };
-    const res = await fetch('http://localhost:5000/api/assets', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newAsset),
-    });
-    if (res.ok) {
-      alert('Asset added!'); setName(''); setCategory(''); setDescription(''); setTotalQuantity(1); 
-      fetchAssets(); fetchAuditLogs();
-    }
+    setIsLoading(true);
+    try {
+      const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+      const newAsset = { name, category: formattedCategory, description, total_quantity: parseInt(totalQuantity), admin_id: user.id };
+      const res = await fetch('http://localhost:5000/api/assets', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newAsset),
+      });
+      if (res.ok) {
+        alert('Asset added!'); setName(''); setCategory(''); setDescription(''); setTotalQuantity(1); 
+        await fetchAssets(); await fetchAuditLogs();
+      }
+    } finally { setIsLoading(false); }
   };
 
   const handleEditAsset = async (id, updatedData) => {
-    const res = await fetch(`http://localhost:5000/api/assets/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...updatedData, admin_id: user.id }),
-    });
-    if (res.ok) { alert('Asset updated successfully!'); fetchAssets(); fetchAuditLogs(); } 
-    else { const data = await res.json(); alert(`Error updating asset: ${data.error}`); }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/assets/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...updatedData, admin_id: user.id }),
+      });
+      if (res.ok) { alert('Asset updated successfully!'); await fetchAssets(); await fetchAuditLogs(); } 
+      else { const data = await res.json(); alert(`Error: ${data.error}`); }
+    } finally { setIsLoading(false); }
   };
 
   const handleDeleteAsset = async (id) => {
-    const res = await fetch(`http://localhost:5000/api/assets/${id}`, { 
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
-    });
-    if (res.ok) { alert('Asset deleted successfully!'); fetchAssets(); fetchAuditLogs(); } 
-    else { const data = await res.json(); alert(`Error deleting asset: ${data.error}`); }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/assets/${id}`, { 
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
+      });
+      if (res.ok) { alert('Asset deleted successfully!'); await fetchAssets(); await fetchAuditLogs(); } 
+      else { const data = await res.json(); alert(`Error: ${data.error}`); }
+    } finally { setIsLoading(false); }
   };
 
   const handleBookAsset = async (assetId, qty, start, end) => {
     if (!start || !end) return alert("Select dates!");
-    const res = await fetch('http://localhost:5000/api/bookings', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ asset_id: assetId, quantity: parseInt(qty), start_date: start, end_date: end, user_id: user.id }),
-    });
-    if (res.ok) { alert('Requested!'); fetchBookings(); }
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/bookings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asset_id: assetId, quantity: parseInt(qty), start_date: start, end_date: end, user_id: user.id }),
+      });
+      if (res.ok) { alert('Requested!'); await fetchBookings(); }
+    } finally { setIsLoading(false); }
   };
 
   const handleApproveIssue = async (id) => {
-    const res = await fetch(`http://localhost:5000/api/bookings/${id}/approve`, { 
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
-    });
-    if (res.ok) { fetchBookings(); fetchAssets(); fetchAuditLogs(); }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/bookings/${id}/approve`, { 
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
+      });
+      if (res.ok) { await fetchBookings(); await fetchAssets(); await fetchAuditLogs(); }
+    } finally { setIsLoading(false); }
   };
 
   const handleRejectIssue = async (id) => {
     if (!window.confirm("Are you sure you want to reject this request?")) return;
-    const res = await fetch(`http://localhost:5000/api/bookings/${id}/reject`, { 
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
-    });
-    if (res.ok) { fetchBookings(); fetchAuditLogs(); }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/bookings/${id}/reject`, { 
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
+      });
+      if (res.ok) { await fetchBookings(); await fetchAuditLogs(); }
+    } finally { setIsLoading(false); }
   };
 
   const handleRequestReturn = async (id) => {
-    const res = await fetch(`http://localhost:5000/api/bookings/${id}/request-return`, { method: 'PUT' });
-    if (res.ok) fetchBookings();
+    setIsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/bookings/${id}/request-return`, { method: 'PUT' });
+      if (res.ok) await fetchBookings();
+    } finally { setIsLoading(false); }
   };
 
   const handleApproveReturn = async (id) => {
-    const res = await fetch(`http://localhost:5000/api/bookings/${id}/approve-return`, { 
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
-    });
-    if (res.ok) { fetchBookings(); fetchAssets(); fetchAuditLogs(); }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/bookings/${id}/approve-return`, { 
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_id: user.id }) 
+      });
+      if (res.ok) { await fetchBookings(); await fetchAssets(); await fetchAuditLogs(); }
+    } finally { setIsLoading(false); }
   };
 
   const getStatusBadge = (status) => {
@@ -127,7 +153,7 @@ function App() {
       'returned': { bg: '#6c757d', text: 'white', label: 'RETURNED' }
     };
     const c = colors[status] || colors['returned'];
-    return <span style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: c.bg, color: c.text, fontSize: '11px', fontWeight: 'bold' }}>{c.label}</span>;
+    return <span style={{ padding: '6px 10px', borderRadius: '6px', backgroundColor: c.bg, color: c.text, fontSize: '12px', fontWeight: 'bold' }}>{c.label}</span>;
   };
 
   if (!user) return <AuthScreen onLoginSuccess={(u) => setUser(u)} />;
@@ -135,181 +161,215 @@ function App() {
   const uniqueCategories = ['All', ...new Set(assets.map(a => a.category))].sort();
   const filteredAssets = selectedCategory === 'All' ? assets : assets.filter(a => a.category === selectedCategory);
 
+  const premiumCardStyle = {
+    backgroundColor: '#fff', padding: '40px 50px', borderRadius: '20px', marginBottom: '30px', 
+    border: '1px solid #eaeaea', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)' 
+  };
+
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1100px', margin: '0 auto', backgroundColor: '#f9fbfd', minHeight: '100vh' }}>
+    <div style={{ backgroundColor: '#f4f7f6', minHeight: '100vh', padding: '30px 20px', position: 'relative' }}>
       
-      {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eee', paddingBottom: '15px', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0, color: '#333' }}>IITR Asset Platform</h1>
-        <div>
-          <span style={{ marginRight: '15px', fontWeight: 'bold', color: user.role === 'admin' ? '#d9534f' : '#0275d8' }}>
-            {user.name} ({user.role.toUpperCase()})
-          </span>
-          <button onClick={handleLogout} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px' }}>Logout</button>
+      {/* GLOBAL LOADING SPINNER OVERLAY */}
+      {isLoading && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(3px)',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            width: '50px', height: '50px', border: '5px solid #f3f3f3', borderTop: '5px solid #007bff',
+            borderRadius: '50%', animation: 'spin 1s linear infinite'
+          }} />
+          <p style={{ marginTop: '20px', fontWeight: 'bold', color: '#2c3e50', fontSize: '18px' }}>Processing...</p>
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
         </div>
-      </div>
+      )}
 
-      {/* NAVIGATION TABS */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #ddd', flexWrap: 'wrap' }}>
-        <button onClick={() => setActiveTab('inventory')} style={getTabStyle(activeTab === 'inventory')}>Inventory</button>
-        <button onClick={() => setActiveTab('operations')} style={getTabStyle(activeTab === 'operations')}>{user.role === 'admin' ? 'Booking Operations' : 'My History'}</button>
-        {user.role === 'admin' && (
-          <>
-            <button onClick={() => setActiveTab('analytics')} style={getTabStyle(activeTab === 'analytics')}>Analytics</button>
-            <button onClick={() => setActiveTab('audit')} style={getTabStyle(activeTab === 'audit')}>Audit Logs</button>
-          </>
-        )}
-      </div>
-
-      {/* TAB 1: INVENTORY */}
-      {activeTab === 'inventory' && (
-        <div>
-          {user.role === 'admin' && (
-            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid #ddd' }}>
-              <h2 style={{marginTop: 0}}>Add New Asset</h2>
-              <form onSubmit={handleAddAsset} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <input type="text" placeholder="Asset Name" value={name} onChange={(e) => setName(e.target.value)} required style={{padding: '8px', flex: 1}}/>
-                <input type="text" list="category-suggestions" placeholder="Category" value={category} onChange={(e) => setCategory(e.target.value)} required style={{padding: '8px', flex: 1}}/>
-                <datalist id="category-suggestions">
-                  {uniqueCategories.filter(cat => cat !== 'All').map(cat => (
-                    <option key={cat} value={cat} />
-                  ))}
-                </datalist>
-                <input type="text" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} required style={{padding: '8px', flex: 2}}/>
-                <input type="number" min="1" value={totalQuantity} onChange={(e) => setTotalQuantity(e.target.value)} required style={{ width: '70px', padding: '8px' }} />
-                <button type="submit" style={{ padding: '8px 20px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add</button>
-              </form>
-            </div>
-          )}
-
-          <h2>Available Inventory</h2>
-          
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-            {uniqueCategories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                style={{
-                  padding: '6px 16px', borderRadius: '20px', border: '1px solid #007bff',
-                  backgroundColor: selectedCategory === cat ? '#007bff' : '#fff', color: selectedCategory === cat ? '#fff' : '#007bff',
-                  cursor: 'pointer', fontWeight: 'bold', transition: '0.2s'
-                }}
-              >
-                {cat}
-              </button>
-            ))}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: '#ffffff', borderRadius: '24px', padding: '40px 50px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', fontFamily: 'sans-serif' }}>
+        
+        {/* HEADER */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eaeaea', paddingBottom: '20px', marginBottom: '25px' }}>
+          <h1 style={{ margin: 0, color: '#2c3e50', fontWeight: '800' }}>IITR Asset Platform</h1>
+          <div>
+            <span style={{ marginRight: '20px', fontWeight: '600', color: user.role === 'admin' ? '#d9534f' : '#0275d8' }}>
+              {user.name} ({user.role.toUpperCase()})
+            </span>
+            <button onClick={handleLogout} style={{ padding: '8px 18px', cursor: 'pointer', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold' }}>Logout</button>
           </div>
+        </div>
 
-          {filteredAssets.length === 0 ? <p>No assets found.</p> : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-              {filteredAssets.map((asset) => (
-                <AssetCard key={asset.asset_id} asset={asset} onBook={handleBookAsset} isAdmin={user.role === 'admin'} onEdit={handleEditAsset} onDelete={handleDeleteAsset} />
+        {/* NAVIGATION TABS */}
+        <div style={{ display: 'flex', gap: '15px', marginBottom: '35px', borderBottom: '2px solid #eaeaea', flexWrap: 'wrap' }}>
+          <button onClick={() => setActiveTab('inventory')} style={getTabStyle(activeTab === 'inventory')}>Inventory</button>
+          <button onClick={() => setActiveTab('operations')} style={getTabStyle(activeTab === 'operations')}>{user.role === 'admin' ? 'Booking Operations' : 'My History'}</button>
+          {user.role === 'admin' && (
+            <>
+              <button onClick={() => setActiveTab('analytics')} style={getTabStyle(activeTab === 'analytics')}>Analytics</button>
+              <button onClick={() => setActiveTab('audit')} style={getTabStyle(activeTab === 'audit')}>Audit Logs</button>
+            </>
+          )}
+        </div>
+
+        {/* TAB 1: INVENTORY */}
+        {activeTab === 'inventory' && (
+          <div>
+            {user.role === 'admin' && (
+              <div style={premiumCardStyle}>
+                <h2 style={{marginTop: 0, color: '#2c3e50'}}>Add New Asset</h2>
+                <form onSubmit={handleAddAsset} style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginTop: '20px' }}>
+                  <input type="text" placeholder="Asset Name" value={name} onChange={(e) => setName(e.target.value)} required style={inputStyle}/>
+                  <input type="text" list="category-suggestions" placeholder="Category" value={category} onChange={(e) => setCategory(e.target.value)} required style={inputStyle}/>
+                  <datalist id="category-suggestions">
+                    {uniqueCategories.filter(cat => cat !== 'All').map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                  <input type="text" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} required style={{...inputStyle, flex: 2}}/>
+                  <input type="number" min="1" value={totalQuantity} onChange={(e) => setTotalQuantity(e.target.value)} required style={{ ...inputStyle, width: '80px' }} />
+                  <button type="submit" style={{ padding: '10px 24px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Add Asset</button>
+                </form>
+              </div>
+            )}
+
+            <h2 style={{ color: '#2c3e50', marginBottom: '15px' }}>Available Inventory</h2>
+            
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '30px', flexWrap: 'wrap' }}>
+              {uniqueCategories.map(cat => (
+                <button key={cat} onClick={() => setSelectedCategory(cat)}
+                  style={{
+                    padding: '8px 20px', borderRadius: '24px', border: '1px solid #007bff', backgroundColor: selectedCategory === cat ? '#007bff' : '#fff', color: selectedCategory === cat ? '#fff' : '#007bff', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s', boxShadow: selectedCategory === cat ? '0 4px 8px rgba(0,123,255,0.2)' : 'none'
+                  }}>
+                  {cat}
+                </button>
               ))}
             </div>
-          )}
-        </div>
-      )}
 
-      {/* TAB 2: OPERATIONS / HISTORY */}
-      {activeTab === 'operations' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
-          <h2 style={{marginTop: 0}}>{user.role === 'admin' ? "System Booking Operations" : "My Borrowing History"}</h2>
-          {bookings.length === 0 ? <p>No records found.</p> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f4f7f6', borderBottom: '2px solid #ddd' }}>
-                  <th style={{ padding: '12px' }}>ID</th>
-                  {user.role === 'admin' && <th style={{ padding: '12px' }}>User</th>}
-                  <th style={{ padding: '12px' }}>Asset</th>
-                  <th style={{ padding: '12px' }}>Qty</th>
-                  <th style={{ padding: '12px' }}>Status</th>
-                  <th style={{ padding: '12px' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((b) => (
-                  <tr key={b.booking_id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '12px' }}>#{b.booking_id}</td>
-                    {user.role === 'admin' && <td style={{ padding: '12px' }}>User {b.user_id}</td>}
-                    <td style={{ padding: '12px' }}>{b.asset_name}</td>
-                    <td style={{ padding: '12px' }}>{b.quantity}</td>
-                    <td style={{ padding: '12px' }}>{getStatusBadge(b.status)}</td>
-                    <td style={{ padding: '12px' }}>
-                      {user.role === 'user' && b.status === 'approved' && (
-                        <button onClick={() => handleRequestReturn(b.booking_id)} style={btnStyle('#17a2b8')}>Initiate Return</button>
-                      )}
-                      {user.role === 'admin' && b.status === 'pending' && (
-                        <div style={{display: 'flex', gap: '5px'}}>
-                          <button onClick={() => handleApproveIssue(b.booking_id)} style={btnStyle('#28a745')}>Approve</button>
-                          <button onClick={() => handleRejectIssue(b.booking_id)} style={btnStyle('#dc3545')}>Reject</button>
-                        </div>
-                      )}
-                      {user.role === 'admin' && b.status === 'return_pending' && (
-                        <button onClick={() => handleApproveReturn(b.booking_id)} style={btnStyle('#6c757d')}>Approve Return</button>
-                      )}
-                    </td>
-                  </tr>
+            {filteredAssets.length === 0 ? <p style={{color: '#6c757d'}}>No assets found.</p> : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px', marginBottom: '40px' }}>
+                {filteredAssets.map((asset) => (
+                  <AssetCard 
+                    key={asset.asset_id} asset={asset} onBook={handleBookAsset} isAdmin={user.role === 'admin'} onEdit={handleEditAsset} onDelete={handleDeleteAsset} userId={user.id} 
+                    onRefresh={async () => { setIsLoading(true); await fetchAssets(); if(user.role === 'admin') await fetchAuditLogs(); setIsLoading(false); }} 
+                  />
                 ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* TAB 3: ANALYTICS */}
-      {activeTab === 'analytics' && user.role === 'admin' && (
-        <AnalyticsDashboard assets={assets} bookings={bookings} />
-      )}
-
-      {/* TAB 4: AUDIT LOGS (ADMIN ONLY) */}
-      {activeTab === 'audit' && user.role === 'admin' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
-          <h2 style={{marginTop: 0}}>Security & Audit Logs</h2>
-          <p style={{color: '#666', marginBottom: '20px'}}>Immutable record of all administrative actions taken on the system.</p>
-          
-          {auditLogs.length === 0 ? <p>No audit logs generated yet.</p> : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f8d7da', color: '#721c24', borderBottom: '2px solid #f5c6cb' }}>
-                    <th style={{ padding: '12px' }}>Timestamp</th>
-                    <th style={{ padding: '12px' }}>Administrator</th>
-                    <th style={{ padding: '12px' }}>Action Type</th>
-                    <th style={{ padding: '12px' }}>Event Details</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auditLogs.map((log) => (
-                    <tr key={log.log_id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{new Date(log.created_at).toLocaleString()}</td>
-                      <td style={{ padding: '12px', fontWeight: 'bold' }}>{log.admin_name || `Admin #${log.admin_id}`}</td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{ backgroundColor: '#e2e3e5', color: '#383d41', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
-                          {log.action.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', color: '#555' }}>{log.details}</td>
+        {/* TAB 2: OPERATIONS / HISTORY */}
+        {activeTab === 'operations' && (
+          <div style={premiumCardStyle}>
+            <h2 style={{marginTop: 0, color: '#2c3e50', marginBottom: '25px'}}>{user.role === 'admin' ? "System Booking Operations" : "My Borrowing History"}</h2>
+            {bookings.length === 0 ? <p style={{color: '#6c757d'}}>No records found.</p> : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eaeaea' }}>
+                      <th style={{ padding: '16px 12px', color: '#495057' }}>ID</th>
+                      {user.role === 'admin' && <th style={{ padding: '16px 12px', color: '#495057' }}>User</th>}
+                      <th style={{ padding: '16px 12px', color: '#495057' }}>Asset</th>
+                      <th style={{ padding: '16px 12px', color: '#495057' }}>Qty</th>
+                      <th style={{ padding: '16px 12px', color: '#495057' }}>Duration</th>
+                      <th style={{ padding: '16px 12px', color: '#495057' }}>Status</th>
+                      <th style={{ padding: '16px 12px', color: '#495057' }}>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                  </thead>
+                  <tbody>
+                    {bookings.map((b) => (
+                      <tr key={b.booking_id} style={{ borderBottom: '1px solid #f1f3f5', transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fafbfc'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                        <td style={{ padding: '16px 12px', fontWeight: '500' }}>#{b.booking_id}</td>
+                        {user.role === 'admin' && <td style={{ padding: '16px 12px' }}>User {b.user_id}</td>}
+                        <td style={{ padding: '16px 12px', fontWeight: '600', color: '#2c3e50' }}>{b.asset_name}</td>
+                        <td style={{ padding: '16px 12px' }}>{b.quantity}</td>
+                        <td style={{ padding: '16px 12px', fontSize: '14px', color: '#6c757d' }}>
+                          {new Date(b.start_date).toLocaleDateString()} - {new Date(b.end_date).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '16px 12px' }}>{getStatusBadge(b.status)}</td>
+                        <td style={{ padding: '16px 12px' }}>
+                          {user.role === 'user' && b.status === 'approved' && (
+                            <button onClick={() => handleRequestReturn(b.booking_id)} style={btnStyle('#17a2b8')}>Initiate Return</button>
+                          )}
+                          {user.role === 'admin' && b.status === 'pending' && (
+                            <div style={{display: 'flex', gap: '8px'}}>
+                              <button onClick={() => handleApproveIssue(b.booking_id)} style={btnStyle('#28a745')}>Approve</button>
+                              <button onClick={() => handleRejectIssue(b.booking_id)} style={btnStyle('#dc3545')}>Reject</button>
+                            </div>
+                          )}
+                          {user.role === 'admin' && b.status === 'return_pending' && (
+                            <button onClick={() => handleApproveReturn(b.booking_id)} style={btnStyle('#6c757d')}>Approve Return</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
+        {/* TAB 3: ANALYTICS */}
+        {activeTab === 'analytics' && user.role === 'admin' && (
+          <AnalyticsDashboard assets={assets} bookings={bookings} />
+        )}
+
+        {/* TAB 4: AUDIT LOGS */}
+        {activeTab === 'audit' && user.role === 'admin' && (
+          <div style={premiumCardStyle}>
+            <h2 style={{marginTop: 0, color: '#2c3e50'}}>Security & Audit Logs</h2>
+            <p style={{color: '#6c757d', marginBottom: '25px'}}>Immutable record of all administrative actions taken on the system.</p>
+            
+            {auditLogs.length === 0 ? <p style={{color: '#6c757d'}}>No audit logs generated yet.</p> : (
+              <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #eaeaea' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#fff5f5', color: '#c53030', borderBottom: '2px solid #fed7d7' }}>
+                      <th style={{ padding: '16px' }}>Timestamp</th>
+                      <th style={{ padding: '16px' }}>Administrator</th>
+                      <th style={{ padding: '16px' }}>Action Type</th>
+                      <th style={{ padding: '16px' }}>Event Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map((log) => (
+                      <tr key={log.log_id} style={{ borderBottom: '1px solid #f1f3f5' }}>
+                        <td style={{ padding: '16px', whiteSpace: 'nowrap', color: '#495057' }}>{new Date(log.created_at).toLocaleString()}</td>
+                        <td style={{ padding: '16px', fontWeight: 'bold', color: '#2c3e50' }}>{log.admin_name || `Admin #${log.admin_id}`}</td>
+                        <td style={{ padding: '16px' }}>
+                          <span style={{ backgroundColor: '#e2e8f0', color: '#4a5568', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                            {log.action.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px', color: '#6c757d' }}>{log.details}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
 
 const getTabStyle = (isActive) => ({
-  padding: '12px 24px', backgroundColor: isActive ? '#007bff' : 'transparent', color: isActive ? 'white' : '#555',
+  padding: '14px 28px', backgroundColor: isActive ? '#007bff' : 'transparent', color: isActive ? 'white' : '#6c757d',
   border: 'none', borderBottom: isActive ? '3px solid #0056b3' : '3px solid transparent', cursor: 'pointer',
-  fontSize: '16px', fontWeight: 'bold', borderRadius: '4px 4px 0 0', transition: 'all 0.2s'
+  fontSize: '16px', fontWeight: 'bold', borderRadius: '8px 8px 0 0', transition: 'all 0.2s ease-in-out'
 });
 
 const btnStyle = (color) => ({
-  padding: '6px 12px', backgroundColor: color, color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px'
+  padding: '8px 14px', backgroundColor: color, color: 'white', border: 'none', cursor: 'pointer', borderRadius: '6px',
+  fontWeight: 'bold', fontSize: '13px', transition: 'opacity 0.2s'
 });
+
+const inputStyle = {
+  padding: '12px 16px', flex: 1, borderRadius: '8px', border: '1px solid #ced4da', fontSize: '15px', outline: 'none'
+};
 
 export default App;
