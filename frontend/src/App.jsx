@@ -217,7 +217,7 @@ function App() {
                 )}
               </button>
               
-              {/* DROPDOWN MENU */}
+              {/* dropdown menu for seeing notifs */}
               {showNotifications && (
                 <div style={{ position: 'absolute', top: '40px', right: '0', background: 'white', border: '1px solid #eaeaea', borderRadius: '12px', width: '320px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 1000, padding: '15px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
